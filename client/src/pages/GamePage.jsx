@@ -41,6 +41,7 @@ function GamePage() {
   const [videoOff, setVideoOff] = useState(false);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const chatEndRef = useRef(null);
   const [playerName] = useState(() => localStorage.getItem('playerName') || '');
   const [showCaseInfo, setShowCaseInfo] = useState(true);
   const [notifications, setNotifications] = useState([]);
@@ -58,6 +59,12 @@ function GamePage() {
       }
     }
   }, [game, connected, socket, gameId, navigate]);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chat]);
 
   useEffect(() => {
     if (solutionResult) {
@@ -313,7 +320,7 @@ function GamePage() {
                 {callActive ? '📞' : '📞'}
               </button>
             </div>
-            <div className="chat-messages scrollbar" ref={chatEndRef}>
+            <div className="chat-messages scrollbar">
               {chat.map(msg => (
                 <div key={msg.id} className={`chat-message ${msg.playerId === socket.id ? 'own' : ''}`}>
                   <div className="message-header">
@@ -323,6 +330,7 @@ function GamePage() {
                   <p>{msg.message}</p>
                 </div>
               ))}
+              <div ref={chatEndRef} />
             </div>
             <form onSubmit={(e) => { e.preventDefault(); sendChat(chatMessage); setChatMessage(''); }} className="chat-input">
               <input
@@ -387,8 +395,6 @@ function GamePage() {
     </div>
   );
 }
-
-function chatEndRef() {}
 
 function EvidenceModal({ onClose, onSubmit, initialData, caseData }) {
   const [formData, setFormData] = useState({

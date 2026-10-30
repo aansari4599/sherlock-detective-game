@@ -122,12 +122,18 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Game not found' });
       return;
     }
-    if (game.players.length >= 2) {
-      socket.emit('error', { message: 'Game is full (couples only)' });
+
+    const existing = game.players.find(p => p.name === playerName || p.id === socket.id);
+    if (existing) {
+      existing.id = socket.id;
+      existing.connected = true;
+      socket.join(gameId);
+      socket.emit('game-state-update', game);
       return;
     }
-    if (game.players.some(p => p.id === socket.id)) {
-      socket.emit('error', { message: 'Already in this game' });
+
+    if (game.players.length >= 2) {
+      socket.emit('error', { message: 'Game is full (couples only)' });
       return;
     }
 
