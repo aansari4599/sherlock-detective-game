@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: sherlock-detective-server
+    env: docker
+    plan: free
+    dockerfilePath: server/Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: CLIENT_URL
+        value: https://sherlock-detective-client.onrender.com
+    healthCheckPath: /api/health
+
+  - type: web
+    name: sherlock-detective-client
+    env: docker
+    plan: free
+    dockerfilePath: client/Dockerfile
+    envVars:
+      - key: REACT_APP_SERVER_URL
+        value: https://sherlock-detective-server.onrender.com
