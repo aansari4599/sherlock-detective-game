@@ -224,8 +224,12 @@ function GamePage() {
       <div className="page game-page loading">
         <div className="loading-state">
           <div className="spinner" />
-          <h3>Entering the Fog...</h3>
-          <p>Connecting to {gameId}</p>
+          <h3>{connected ? 'Entering the Fog…' : 'Reconnecting…'}</h3>
+          <p>{connected ? `Joining case ${gameId}` : 'Reaching the detective server. This can take up to a minute if it was asleep.'}</p>
+          {error && <p className="error-message">{error}</p>}
+          <button className="btn-secondary" onClick={() => navigate('/')} style={{ marginTop: '0.5rem' }}>
+            Back to Baker Street
+          </button>
         </div>
       </div>
     );

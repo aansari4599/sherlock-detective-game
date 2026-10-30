@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useCasesSocket, useSocket } from '../context/SocketContext';
 
 function CreateGamePage() {
@@ -117,11 +117,17 @@ function CreateGamePage() {
           <button 
             className="btn-primary btn-large" 
             onClick={() => handleCreateGame(selectedCase)}
-            disabled={creating}
+            disabled={creating || !connected}
           >
-            {creating ? 'Summoning the Fog...' : 'Begin Investigation'}
+            {creating ? 'Summoning the Fog…' : !connected ? 'Connecting…' : 'Begin Investigation'}
           </button>
         </div>
+      )}
+
+      {!connected && (
+        <p className="error-message" style={{ marginTop: '1.5rem' }}>
+          Connecting to the detective server. If this is the first visit in a while, it can take up to a minute to wake.
+        </p>
       )}
 
       <div className="page-footer">

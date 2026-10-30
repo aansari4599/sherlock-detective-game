@@ -1,32 +1,36 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
+import { SERVER_URL } from '../config';
 
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [connectError, setConnectError] = useState(null);
 
   useEffect(() => {
-    const newSocket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:3001', {
+    const newSocket = io(SERVER_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 8000,
+      timeout: 20000,
     });
 
     newSocket.on('connect', () => {
-      console.log('Socket connected:', newSocket.id);
       setConnected(true);
+      setConnectError(null);
     });
 
     newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
       setConnected(false);
     });
 
     newSocket.on('connect_error', (err) => {
-      console.error('Connection error:', err);
+      setConnected(false);
+      setConnectError(err.message || 'Unable to reach the detective server');
     });
 
     setSocket(newSocket);
@@ -37,7 +41,7 @@ export function SocketProvider({ children }) {
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, connected }}>
+    <SocketContext.Provider value={{ socket, connected, connectError }}>
       {children}
     </SocketContext.Provider>
   );
@@ -192,17 +196,37 @@ export function useCasesSocket(socket) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!socket) return;
+    let active = true;
 
-    socket.emit('get-cases');
+    // REST fallback so the archive renders even before the socket is ready
+    fetch(`${SERVER_URL}/api/cases`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('bad response'))))
+      .then((list) => {
+        if (active && Array.isArray(list) && list.length) {
+          setCases((prev) => (prev.length ? prev : list));
+          setLoading(false);
+        }
+      })
+      .catch(() => {});
 
-    socket.on('cases-list', (casesList) => {
+    if (!socket) return () => { active = false; };
+
+    const handleList = (casesList) => {
+      if (!active) return;
       setCases(casesList);
       setLoading(false);
-    });
+    };
+
+    socket.on('cases-list', handleList);
+    socket.emit('get-cases');
+
+    // Never leave the UI stuck on skeletons
+    const failsafe = setTimeout(() => { if (active) setLoading(false); }, 8000);
 
     return () => {
-      socket.off('cases-list');
+      active = false;
+      clearTimeout(failsafe);
+      socket.off('cases-list', handleList);
     };
   }, [socket]);
 
@@ -210,15 +234,17 @@ export function useCasesSocket(socket) {
     return new Promise((resolve, reject) => {
       if (!socket) return reject(new Error('No socket'));
 
-      const timeout = setTimeout(() => reject(new Error('Timeout')), 5000);
-      
-      socket.emit('create-case', { caseData });
-      
-      socket.once('case-created', ({ caseId, case: newCase }) => {
+      const timeout = setTimeout(() => reject(new Error('Timeout')), 8000);
+
+      const handler = ({ caseId, case: newCase }) => {
         clearTimeout(timeout);
-        setCases(prev => [...prev, newCase]);
+        socket.off('case-created', handler);
+        setCases((prev) => [...prev, newCase]);
         resolve({ caseId, case: newCase });
-      });
+      };
+
+      socket.on('case-created', handler);
+      socket.emit('create-case', { caseData });
     });
   }, [socket]);
 
